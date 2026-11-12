@@ -216,5 +216,16 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+#Ensures log files, the python venv and persistent data are not retained in the repo.
+logs/*
+!logs/.gitkeep
+
+python/*
+!python/.gitkeep
+
+stores/*
+!stores/.gitkeep
+
+
 # Streamlit
 .streamlit/secrets.toml
