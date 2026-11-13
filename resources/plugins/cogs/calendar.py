@@ -172,6 +172,35 @@ class CalendarObj:
         self.time_tick_last += days_since_tick * 86400
         return True
 
+    
+    def _get_current_time(self) -> tuple[int, int, int, int, int]:
+        now = time.time()
+
+        elapsed = 0 if self.paused else max(
+            0, now - self.time_tick_last
+        )
+
+        seconds = (
+            self.elapsed_days * 86400
+            + elapsed * self.timespeed
+        )
+
+        additional_days, seconds_today = divmod(
+            int(seconds), 86400
+        )
+
+        abs_day = self.start_day + additional_days
+
+        hour, remaining_seconds = divmod(seconds_today, 3600)
+        minute, _ = divmod(remaining_seconds, 60)
+
+        day, month, year = Calendar.abs_day_to_date(
+            abs_day=abs_day,
+            months_dict=self.months_dict
+        )
+
+        return day, month, year, hour, minute
+
     def skip(self, days: int = 0, months: int = 0, years: int = 0) -> None:
 
         if days < 0 or months < 0 or years < 0:
@@ -710,8 +739,35 @@ class Calendar(BaseCog):
 
             await interaction.followup.send(f"Removed event {event.uuid}: {event.title} on {event.date} by <@{event.creatorid}>.")
             
+    @calendar.command(
+        name="time",
+        description="Displays the current calendar date and time."
+    )
+    @app_commands.guild_only()
+    async def time(
+        self,
+        interaction: discord.Interaction
+    ) -> None:
+        await interaction.response.defer()
 
-    # TODO: add calendar exacttime.
+        async with self._get_guild_lock(interaction.guild.id):
+            calendar = await self._get_calendar(
+                guild_id=interaction.guild.id
+            )
+
+            day, month, year, hour, minute = (
+                calendar._get_current_time()
+            )
+
+            month_name = calendar.months_dict[month]["name"]
+            ordinal = DiscordFormatter.ordinal(day)
+
+            status = "Paused" if calendar.paused else "Running"
+
+            message = (f"It is {hour:02d}:{minute:02d} on the {ordinal} of {month_name}. Calendar status: {status}")
+
+            await interaction.followup.send(message)
+
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Calendar(bot))
