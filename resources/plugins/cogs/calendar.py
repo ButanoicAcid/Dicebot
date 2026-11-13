@@ -493,7 +493,7 @@ class Calendar(BaseCog):
         timespeed: int,
         message: str,
         eventmsg: str,
-    ):
+    ) -> None:
         await interaction.response.defer()
 
         if timespeed <= 0:
@@ -527,7 +527,7 @@ class Calendar(BaseCog):
     @calendar.command(name="stop", description="Stops the calendar")
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def stop(self, interaction: discord.Interaction):
+    async def stop(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer()
 
         async with self._get_guild_lock(interaction.guild.id):
@@ -543,7 +543,7 @@ class Calendar(BaseCog):
     )
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def timespeed(self, interaction: discord.Interaction, speed: int):
+    async def timespeed(self, interaction: discord.Interaction, speed: int) -> None:
         await interaction.response.defer()
         if speed <= 0:
             raise UserCommandError("Timespeed must be greater than 0.")
@@ -562,7 +562,7 @@ class Calendar(BaseCog):
     )
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(manage_guild=True)
-    async def toggle(self, interaction: discord.Interaction):
+    async def toggle(self, interaction: discord.Interaction) -> None:
         await interaction.response.defer()
 
         async with self._get_guild_lock(interaction.guild.id):
@@ -585,7 +585,7 @@ class Calendar(BaseCog):
         days: int = 0,
         months: int = 0,
         years: int = 0,
-    ):
+    ) -> None:
         await interaction.response.defer()
 
         async with self._get_guild_lock(interaction.guild.id):
@@ -628,7 +628,7 @@ class Calendar(BaseCog):
         days: int = 0,
         months: int = 0,
         years: int = 0,
-    ):
+    ) -> None:
         await interaction.response.defer()
 
         async with self._get_guild_lock(interaction.guild.id):
@@ -651,7 +651,7 @@ class Calendar(BaseCog):
     @app_commands.guild_only()
     async def addevent(
         self, interaction: discord.Interaction, date: str, title: str
-    ):
+    ) -> None:
         await interaction.response.defer()
 
         if "@" in title:
@@ -672,8 +672,46 @@ class Calendar(BaseCog):
                 f"Added event '{title}' for date {date}."
             )
 
-    # TODO: add calendar exacttime
+    @calendar.command(name="listevents", description="Lists calendar events.")
+    @app_commands.guild_only()
+    async def listevents(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer()
 
+        async with self._get_guild_lock(interaction.guild.id):
+            calendar = await self._get_calendar(guild_id=interaction.guild.id)
+            events = calendar.events
+
+            events_msg_list = ["Events list:", "```"]
+            for event in events:
+                events_list.append(f"Event {event.uuid}: {event.title} on {event.date} by <@{event.creatorid}>")
+            events_msg_list.append("```")
+            events_msg = "\n".join(events_msg_list)
+
+            await interaction.followup.send(events_msg)
+
+    @calendar.command(name="delevent", description="Deletes calendar event by uuid.")
+    @app_commands.guild_only()
+    async def delevent(self, interation: discord.Interaction, uuid: str) -> None:
+        await interaction.response.defer()
+
+        async with self._get_guild_lock(interaction.guild.id):
+            calendar = await self._get_calendar(guild_id=interaction.guild.id)
+            event_to_remove = None
+
+            for event in calendar.events:
+                if event.uuid != uuid:
+                    event_to_remove = event
+
+            if not event_to_remove:
+                UserCommandError("No event with the specified UUID was found.")
+
+            calendar.events.remove(event_to_remove)
+            await self._save_calendar(guild_id=interaction.guild.id, calendar=calendar)
+
+            await interaction.followup.send(f"Removed event {event.uuid}: {event.title} on {event.date} by <@{event.creatorid}>.")
+            
+
+    # TODO: add calendar exacttime.
 
 async def setup(bot: commands.Bot) -> None:
     await bot.add_cog(Calendar(bot))
