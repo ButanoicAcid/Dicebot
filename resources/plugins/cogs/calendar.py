@@ -696,11 +696,14 @@ class Calendar(BaseCog):
 
         async with self._get_guild_lock(interaction.guild.id):
             calendar = await self._get_calendar(guild_id=interaction.guild.id)
-            events_to_keep = []
+            event_to_remove = None
 
             for event in calendar.events:
                 if event.uuid != uuid:
                     event_to_remove = event
+
+            if not event_to_remove:
+                UserCommandError("No event with the specified UUID was found.")
 
             calendar.events.remove(event_to_remove)
             await self._save_calendar(guild_id=interaction.guild.id, calendar=calendar)
