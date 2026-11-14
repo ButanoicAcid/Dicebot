@@ -11,6 +11,7 @@ import discord
 from discord.ext import commands
 
 from resources.core.base_cog import BaseCog, UserCommandError
+from resources.core.dicebot_canned_responses import CannedResponses
 
 
 class Administration(BaseCog):
@@ -45,12 +46,7 @@ class Administration(BaseCog):
                 self.logger.info(f"Reset guild commands: {guild_id}")
                 await ctx.send(f"Reset guild commands in guild id: {guild_id}")
             except discord.Forbidden:
-                self.logger.info(
-                    f"Unable to reset commands in guild id: {guild_id}, no access."
-                )
-                await ctx.send(
-                    f"Unable to reset commands in guild id: {guild_id}, no access."
-                )
+                await ctx.send(CannedResponses.bot_no_perms_response(ctx.author))
 
     @commands.command()
     @commands.is_owner()
@@ -78,11 +74,9 @@ class Administration(BaseCog):
                 f"Reloaded cog {self.services.paths.plugin_module}.{cog}."
             )
         except commands.ExtensionNotFound:
-            raise UserCommandError(
-                "Error: Extension is either missing or does not exist."
-            )
+            raise UserCommandError("The extension is either missing or does not exist.")
         except commands.ExtensionNotLoaded:
-            raise UserCommandError("Error: Extension is not loaded.")
+            raise UserCommandError("The extension is not loaded.")
 
     @commands.command()
     @commands.is_owner()
@@ -101,11 +95,9 @@ class Administration(BaseCog):
                 f"Unloaded {self.services.paths.plugin_module}.{cog}"
             )
         except commands.ExtensionNotFound:
-            raise UserCommandError(
-                "Error: Extension is either missing or does not exist."
-            )
+            raise UserCommandError("The extension is either missing or does not exist.")
         except commands.ExtensionNotLoaded:
-            raise UserCommandError("Error: Extension is not loaded.")
+            raise UserCommandError("The extension is not loaded.")
 
     @commands.command()
     @commands.is_owner()
@@ -122,20 +114,16 @@ class Administration(BaseCog):
                 f"Loaded cog {self.services.paths.plugin_module}.{cog}."
             )
         except commands.ExtensionNotFound:
-            raise UserCommandError(
-                "Error: Extension is either missing or does not exist."
-            )
+            raise UserCommandError("The extension is either missing or does not exist.")
         except commands.ExtensionAlreadyLoaded:
-            raise UserCommandError("Error: Extension is already loaded.")
+            raise UserCommandError("The extension is already loaded.")
 
     @commands.command()
     @BaseCog.is_authorised_ctx()
     async def restart(
         self, ctx: commands.Context, *, reason: str = "No reason provided."
     ) -> NoReturn | None:
-        await ctx.send(
-            "Fine, but it's not like I *want* to restart or anything..."
-        )
+        await ctx.send(CannedResponses.restart_response(user=ctx.author))
         await self.bot.restart(
             reason=reason, requested_by=ctx.author, module=type(self).__name__
         )
@@ -145,7 +133,7 @@ class Administration(BaseCog):
     async def updaterestart(
         self, ctx: commands.Context, *, reason: str = "No reason provided."
     ) -> NoReturn | None:
-        await ctx.send("Really? Do I **have** to...")
+        await ctx.send(CannedResponses.restart_response(user=ctx.author))
         await self.bot.update_restart(
             reason=reason, requested_by=ctx.author, module=type(self).__name__
         )
@@ -155,7 +143,7 @@ class Administration(BaseCog):
     async def shutdown(
         self, ctx: commands.Context, *, reason: str = "No reason provided."
     ) -> NoReturn | None:
-        await ctx.send("Do you *really* want me to go? Fine then..")
+        await ctx.send(CannedResponses.shutdown_response(user=ctx.author))
         await self.bot.shutdown(
             reason=reason, requested_by=ctx.author, module=type(self).__name__
         )
@@ -167,7 +155,7 @@ class Administration(BaseCog):
 
         if not match:
             raise UserCommandError(
-                "Invalid time range. Use a positive integer followed by m, h, or d."
+                "That's an invalid time range. Use a positive integer followed by m, h, or d."
             )
 
         amount = int(match.group(1))
@@ -225,7 +213,7 @@ class Administration(BaseCog):
             status, file_path = self._filter_log(log_path, since)
         except FileNotFoundError:
             raise UserCommandError(
-                "Error: File not found. Expected name format: bot-sessionid."
+                "Could not find the log file."
             )
 
         if status == 1:
@@ -238,7 +226,7 @@ class Administration(BaseCog):
             file_size = os.path.getsize(file_path)
             if file_size > 8 * 1024 * 1024:  # 8MB
                 raise UserCommandError(
-                    "Error: Log file is too large to send. Try a shorter timeframe."
+                    "The log file is too large to send. Try a shorter timeframe."
                 )
             else:
                 await ctx.send(
@@ -247,7 +235,7 @@ class Administration(BaseCog):
                 )
         except (OSError, discord.HTTPException):
             raise UserCommandError(
-                "Error: Failed to send the log file. It may be too large or inaccessible."
+                "Failed to send the log file. It may be too large or inaccessible."
             )
         finally:
             if file_path and Path(file_path).exists():

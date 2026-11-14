@@ -5,6 +5,7 @@ from discord.utils import utcnow
 
 from resources.core.base_cog import BaseCog
 from resources.core.discord_formatter import Colour, DiscordFormatter
+from resources.core.dicebot_canned_responses import CannedResponses
 from resources.plugins.engines.dice import DiceEngine
 
 
@@ -268,7 +269,7 @@ class Dice(BaseCog):
                     heads += 1
                 else:
                     tails += 1
-            output = f"You got... {heads} heads, and {tails} tails."
+            output = CannedResponses.coinflip_responses(heads=heads, tails=tails, user=interaction.user)
 
         await interaction.followup.send(output)
 
