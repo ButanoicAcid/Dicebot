@@ -225,6 +225,8 @@ PLUGINS_LIST = [
     "resources.plugins.cogs.admin",
     "resources.plugins.cogs.dice",
     "resources.plugins.cogs.calendar",
+    "resources.plugins.cogs.moderation",
+    "resources.plugins.cogs.miscellaneous"
 ]
 
 
@@ -382,7 +384,7 @@ class CoreBot(commands.Bot):
     async def on_ready(self) -> None:
         global start_time
 
-        do_sync = await self.stores.config.read("#/state/syncnextstart")
+        do_sync = await self.stores.config.get("#/state/syncnextstart", 0)
 
         if do_sync == 1:
             for guild in self.consts.guilds_to_sync:

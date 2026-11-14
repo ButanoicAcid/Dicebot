@@ -20,6 +20,7 @@ class ParsedSuffix:
     reroll: str | None
     reroll_operator: str | None
     reroll_value: int | None
+    reroll_upper_value: int | None
 
     @classmethod
     def from_dict(cls, data: dict) -> ParsedSuffix:
@@ -33,6 +34,9 @@ class ParsedSuffix:
             reroll_operator=data["reroll_operator"],
             reroll_value=int(data["reroll_value"])
             if data["reroll_value"]
+            else None,
+            reroll_upper_value=int(data["reroll_upper_value"])
+            if data["reroll_upper_value"]
             else None,
         )
 
@@ -62,7 +66,9 @@ class ParsedSuffix:
         if self.reroll is None:
             return False
 
-        if self.reroll_operator == "<":
+        if self.reroll_upper_value is not None:
+            return self.reroll_value <= roll <= self.reroll_upper_value
+        elif self.reroll_operator == "<":
             return roll < self.reroll_value
         elif self.reroll_operator == "<=":
             return roll <= self.reroll_value
@@ -77,7 +83,9 @@ class ParsedSuffix:
         high, low = bounds
         value = self.reroll_value
 
-        if self.reroll_operator == "<":
+        if self.reroll_upper_value is not None:
+            return low >= value and high <= self.reroll_upper_value
+        elif self.reroll_operator == "<":
             return high < value
         elif self.reroll_operator == "<=":
             return high <= value
@@ -111,7 +119,7 @@ class ParsedRoll:
                 bounds = (self.sides, 1)
 
         if bounds[1] < 1 or bounds[0] < bounds[1]:
-            raise UserCommandError("Invalid Syntax: Invalid dice range.")
+            raise UserCommandError("That's not a valid dice range.")
 
         return bounds
 
@@ -119,13 +127,13 @@ class ParsedRoll:
         if self.suffix and self.suffix.reroll == "r":
             if self.suffix.always_rerolls(bounds):
                 raise UserCommandError(
-                    "Invalid Syntax: Reroll condition would cause an infinite loop."
+                    "This reroll condition would cause an infinite loop."
                 )
 
     def inf_explode_check(self, bounds: tuple[int, int]) -> None:
         if bounds[0] == bounds[1]:
             raise UserCommandError(
-                "Invalid Syntax: Explosion condition would cause infinite explosions."
+                "This explosion condition would cause infinite explosions."
             )
 
 
@@ -201,20 +209,27 @@ class RollResult:
             return f"Keep {direction} {suffix.keep_count}."
 
         if suffix.reroll:
+
             action = "Reroll once" if suffix.reroll == "ro" else "Reroll"
 
-            if suffix.reroll_operator == "<":
-                condition = "if less than"
-            elif suffix.reroll_operator == "<=":
-                condition = "if less than or equal to"
-            elif suffix.reroll_operator == ">":
-                condition = "if greater than"
-            elif suffix.reroll_operator == ">=":
-                condition = "if greater than or equal to"
+            if suffix.reroll_upper_value is not None:
+                condition = "if between"
+                lower = self._die_face(suffix.reroll_value)
+                upper = self._die_face(suffix.reroll_upper_value)
+                number = f"{lower} and {upper}"
             else:
-                condition = "on"
+                if suffix.reroll_operator == "<":
+                    condition = "if less than"
+                elif suffix.reroll_operator == "<=":
+                    condition = "if less than or equal to"
+                elif suffix.reroll_operator == ">":
+                    condition = "if greater than"
+                elif suffix.reroll_operator == ">=":
+                    condition = "if greater than or equal to"
+                else:
+                    condition = "on"
 
-            number = self._die_face(suffix.reroll_value)
+                number = self._die_face(suffix.reroll_value)
 
             return f"{action} {condition} {number}."
 
@@ -281,19 +296,6 @@ class DiceEngine:
         self.gm_ids = gm_ids
         self.rng = rng or numpy.random.default_rng()
 
-        self.eightball_responses = [
-            "It is certain.",
-            "Without a doubt.",
-            "You may rely on it.",
-            "Yes - definitely.",
-            "Most likely.",
-            "Ask again later.",
-            "Reply hazy, try again.",
-            "Better not tell you now.",
-            "Don't count on it.",
-            "Very doubtful.",
-        ]
-
     def _is_gm(self, user_id: int) -> bool:
         return user_id in self.gm_ids
 
@@ -303,7 +305,7 @@ class DiceEngine:
             r"(?P<explode>!)"
             r"|(?=(?:adv|dis|[+-][0-9]+))(?P<advantage>adv|dis)?(?P<modifier>[+-][0-9]+)?"
             r"|(?P<keep>(?P<keep_type>kh|kl)(?P<keep_count>0*[1-9][0-9]*))"
-            r"|(?P<reroll>(?P<reroll_type>ro?)(?P<reroll_operator><=|>=|<|>)?(?P<reroll_value>[1-9][0-9]*))"
+            r"|(?P<reroll>(?P<reroll_type>ro?)(?P<reroll_operator><=|>=|<|>)?(?P<reroll_value>[1-9][0-9]*))(?::(?P<reroll_upper_value>[1-9][0-9]*))?)"
         )
 
         specialpattern = re.compile(specials, re.IGNORECASE)
@@ -316,7 +318,7 @@ class DiceEngine:
 
         if not match:
             raise UserCommandError(
-                "Invalid syntax: see command help for dice syntax."
+                "That's not a valid dice string, check the guide."
             )
 
         data = match.groupdict()
@@ -326,22 +328,17 @@ class DiceEngine:
         sides = int(data["sides"])
         arg = data["argument"]
 
-        if count > 10000 or sides < 2 or sides > 10000:
-            raise UserCommandError(
-                "Invalid syntax: Number of dice and dice sides cannot exceed 10,000, and number of dice sides cannot be less than 2."
-            )
+        if count < 1:
+            raise UserCommandError("You can't roll less than once dice.")
 
-        if data["advantage"] is not None and not (count == 1 or count == 2):
-            raise UserCommandError(
-                "Invalid syntax: Only one or two dice can be specified when using advantage or disadvantage (two will be rolled either way)."
-            )
+        if count > 10000:
+            raise UserCommandError("You can't roll more than ten thousand dice.")
 
-        keep_count = int(data["keep_count"]) if data["keep_count"] else None
+        if sides < 2:
+            raise UserCommandError("The number of sides on a dice cannot be less than two.")
 
-        if keep_count is not None and keep_count > count:
-            raise UserCommandError(
-                "Invalid syntax: You cannot keep more dice than you roll."
-            )
+        if sides > 10000:
+            raise UserCommandError("The number of sides on a dice cannot be more than ten thousand.")
 
         suffix = data["suffix"]
         special = None
@@ -351,6 +348,26 @@ class DiceEngine:
 
             if suffixmatch:
                 special = ParsedSuffix.from_dict(suffixmatch.groupdict())
+
+                if special.advantage is not None and not (count == 1 or count == 2):
+                    raise UserCommandError(
+                        "You can't roll more than one dice when using dis/advantage."
+                    )
+
+                if special.keep_count is not None and special.keep_count > count:
+                    raise UserCommandError(
+                        "You cannot keep more dice than you roll."
+                    )
+
+                if special.reroll_operator is not None and special.reroll_upper_value is not None:
+                    raise UserCommandError(
+                        "You cannot perform range calculations and size comparisons in the same reroll."
+                    )
+
+                if special.reroll_upper_value is not None and special.reroll_upper_value < special.reroll_value:
+                    raise UserCommandError(
+                        "The lower bound of the reroll range cannot exceed the upper bound."
+                    )
 
         return ParsedRoll(
             count=count, sides=sides, suffix=special, flag=flag, arg=arg
@@ -395,7 +412,7 @@ class DiceEngine:
 
         for _ in range(count):
             if time.monotonic() >= deadline:
-                raise UserCommandError("Command timed out.")
+                raise UserCommandError("The command took too long.")
             value = self._generate_number(
                 bounds=bounds, supergamble=supergamble
             )
@@ -403,7 +420,7 @@ class DiceEngine:
 
         while pending:
             if time.monotonic() >= deadline:
-                raise UserCommandError("Command timed out.")
+                raise UserCommandError("The command took too long.")
             value = pending.popleft()
 
             if suffix:
@@ -419,7 +436,7 @@ class DiceEngine:
                     while True:
                         if rerolls >= self.REROLLS_LIMIT:
                             raise UserCommandError(
-                                "Out of Bounds Error: Per-Die Reroll Limit Exceeded"
+                                "The number of rerolls exceeded the limit."
                             )
                         value = self._generate_number(
                             bounds=bounds, supergamble=supergamble
@@ -444,7 +461,7 @@ class DiceEngine:
             not user_id or not self._is_gm(user_id)
         ):
             raise UserCommandError(
-                "Invalid syntax: see command help for dice syntax."
+                "That's not a valid dice string, check the guide."
             )  # haha, lies!
 
         bounds = parsed.flag_bounds_check()
@@ -487,11 +504,22 @@ class DiceEngine:
         )
 
     def eightball(self) -> str:
-        return self.rng.choice(self.eightball_responses)
+        return self.rng.choice([
+            "It is certain.",
+            "Without a doubt.",
+            "You may rely on it.",
+            "Yes - definitely.",
+            "Most likely.",
+            "Ask again later.",
+            "Reply hazy, try again.",
+            "Better not tell you now.",
+            "Don't count on it.",
+            "Very doubtful.",
+        ])
 
     def coinflip(self, count: int) -> list[str]:
         if not 1 <= count <= 10000:
             raise UserCommandError(
-                "Invalid Syntax: Number of coins must be between 1 and 10,000."
+                "You can't flip less than one coin, and you can't flip more than ten thousand."
             )
         return self.rng.choice(["Heads", "Tails"], size=count).tolist()

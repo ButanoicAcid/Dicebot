@@ -363,13 +363,13 @@ class Calendar(BaseCog):
         try:
             day, month, year = map(int, date.split("/"))
         except ValueError:
-            raise UserCommandError(f"Invalid date format: {date}")
+            raise UserCommandError(f"The date format is invalid.")
 
         if year < 1:
-            raise UserCommandError("Invalid year: cannot be less than one.")
+            raise UserCommandError("The year cannot be less than one.")
 
         if month not in months_dict:
-            raise UserCommandError(f"Invalid month: {month}")
+            raise UserCommandError(f"That month isn't in the months dictionary.")
 
         month_length = Calendar.get_month_lengths(months_dict=months_dict)[
             month - 1
@@ -377,7 +377,7 @@ class Calendar(BaseCog):
 
         if day < 1 or day > month_length:
             raise UserCommandError(
-                "Invalid day: Day cannot be less than one or greater than the length of the current month."
+                "The day can't be outside the month."
             )
 
         return day, month, year
@@ -526,7 +526,7 @@ class Calendar(BaseCog):
         await interaction.response.defer()
 
         if timespeed <= 0:
-            raise UserCommandError("Timespeed must be greater than zero.")
+            raise UserCommandError("The timespeed must be greater than zero.")
 
         async with self._get_guild_lock(interaction.guild.id):
             await self._get_calendar(
@@ -575,7 +575,7 @@ class Calendar(BaseCog):
     async def timespeed(self, interaction: discord.Interaction, speed: int) -> None:
         await interaction.response.defer()
         if speed <= 0:
-            raise UserCommandError("Timespeed must be greater than 0.")
+            raise UserCommandError("The timespeed must be greater than 0.")
 
         async with self._get_guild_lock(interaction.guild.id):
             calendar = await self._get_calendar(guild_id=interaction.guild.id)
@@ -685,7 +685,7 @@ class Calendar(BaseCog):
 
         if "@" in title:
             raise UserCommandError(
-                "You can't have @ in an event title, to prevent unintended mentions."
+                "You can't have @ in an event title."
             )
 
         async with self._get_guild_lock(interaction.guild.id):
@@ -711,8 +711,14 @@ class Calendar(BaseCog):
             events = calendar.events
 
             events_msg_list = ["Events list:", "```"]
+
             for event in events:
-                events_list.append(f"Event {event.uuid}: {event.title} on {event.date} by <@{event.creatorid}>")
+                day, month, year = Calendar.abs_day_to_date(
+                    event.trigger_abs_day,
+                    calendar.months_dict
+                )
+                date = f"{day}/{month}/{year}"
+                events_msg_list.append(f"Event {event.uuid}: {event.title} on {date} by <@{event.creatorid}>")
             events_msg_list.append("```")
             events_msg = "\n".join(events_msg_list)
 
@@ -720,7 +726,7 @@ class Calendar(BaseCog):
 
     @calendar.command(name="delevent", description="Deletes calendar event by uuid.")
     @app_commands.guild_only()
-    async def delevent(self, interation: discord.Interaction, uuid: str) -> None:
+    async def delevent(self, interaction: discord.Interaction, uuid: str) -> None:
         await interaction.response.defer()
 
         async with self._get_guild_lock(interaction.guild.id):
@@ -728,16 +734,22 @@ class Calendar(BaseCog):
             event_to_remove = None
 
             for event in calendar.events:
-                if event.uuid != uuid:
+                if event.uuid == uuid:
                     event_to_remove = event
 
-            if not event_to_remove:
-                UserCommandError("No event with the specified UUID was found.")
+            if event_to_remove is None:
+                raise UserCommandError("There is no event with the specified UUID was found.")
+
+            day, month, year = Calendar.abs_day_to_date(
+                event_to_remove.trigger_abs_day,
+                calendar.months_dict
+            )
+            date = f"{day}/{month}/{year}"
 
             calendar.events.remove(event_to_remove)
             await self._save_calendar(guild_id=interaction.guild.id, calendar=calendar)
 
-            await interaction.followup.send(f"Removed event {event.uuid}: {event.title} on {event.date} by <@{event.creatorid}>.")
+            await interaction.followup.send(f"Removed event {event_to_remove.uuid}: {event_to_remove.title} on {date} by <@{event_to_remove.creatorid}>.")
             
     @calendar.command(
         name="time",

@@ -116,7 +116,7 @@ class Moderation(BaseCog):
             return timestamp.astimezone(UTC)
         except ValueError:
             raise UserCommandError(
-                "Invalid timestamp. Use ISO 8601, e.g. 2026-11-12T14:30:00Z"
+                "That's an invalid timestamp. Use ISO 8601, e.g. 2026-11-12T14:30:00Z"
             )
 
     @purge.command(
@@ -154,7 +154,7 @@ class Moderation(BaseCog):
 
         if afterdt < dtlimit:
             raise UserCommandError(
-                "Time window cannot include messages older than 14 days."
+                "The time window cannot include messages older than 14 days."
             )
 
         if afterdt >= beforedt:
@@ -164,7 +164,7 @@ class Moderation(BaseCog):
 
         if beforedt > now or afterdt > now:
             raise UserCommandError(
-                "Time window cannot include messages that have yet to be sent."
+                "The time window cannot include messages that have yet to be sent."
             )
 
         

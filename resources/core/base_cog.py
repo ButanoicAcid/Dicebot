@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import logging
 import uuid
-from textwrap import dedent
-
 import discord
+import random 
+
+from textwrap import dedent
 from discord import app_commands
 from discord.ext import commands
 
+from resources.core.dicebot_canned_responses import CannedResponses
 
 class UserCommandError(Exception):
     def __init__(self, message: str):
@@ -98,19 +100,17 @@ class BaseCog(commands.Cog):
         original = getattr(error, "original", error)
 
         if isinstance(original, app_commands.MissingPermissions):
-            message = (
-                "You do not have the permissions required to use this command."
-            )
+            message = CannedResponses.no_perms_response(user=interaction.user)
         elif isinstance(
             original, (commands.NotOwner, app_commands.CheckFailure)
         ):
-            message = "You are not authorised to use this command."
+            message = CannedResponses.no_perms_response(user=interaction.user)
         elif isinstance(
             original, (app_commands.BotMissingPermissions, discord.Forbidden)
         ):
-            message = "The bot does not have the permissions required to use this command."
+            message = CannedResponses.bot_no_perms_response(user=interaction.user)
         elif isinstance(original, UserCommandError):
-            message = str(original)
+            message = CannedResponses.user_command_error_response(error=str(original), user=interaction.user)
         else:
             command = (
                 interaction.command.qualified_name
@@ -130,7 +130,7 @@ class BaseCog(commands.Cog):
                 error=original,
             )
 
-            message = f"An unexpected error occurred. Reference: {error_id}"
+            message = CannedResponses.generic_error_response(user=interaction.user, id=error_id)
 
         if interaction.response.is_done():
             await interaction.followup.send(message, ephemeral=True)
@@ -144,17 +144,15 @@ class BaseCog(commands.Cog):
         original = getattr(error, "original", error)
 
         if isinstance(original, (commands.MissingPermissions)):
-            message = (
-                "You do not have the permissions required to use this command."
-            )
+            message = CannedResponses.no_perms_response(user=ctx.author)
         elif isinstance(original, (commands.NotOwner, commands.CheckFailure)):
-            message = "You are not authorised to use this command."
+            message = CannedResponses.no_perms_response(user=ctx.author)
         elif isinstance(
             original, (commands.BotMissingPermissions, discord.Forbidden)
         ):
-            message = "The bot does not have the permissions required to use this command."
+            message = CannedResponses.bot_no_perms_response(user=ctx.author)
         elif isinstance(original, UserCommandError):
-            message = str(original)
+            message = CannedResponses.user_command_error_response(error=str(original), user=ctx.author)
         else:
             command = (
                 ctx.command.qualified_name
@@ -174,7 +172,7 @@ class BaseCog(commands.Cog):
                 error=original,
             )
 
-            message = f"An unexpected error occurred. Reference: {error_id}"
+            message = CannedResponses.generic_error_response(user=ctx.author, id=error_id)
 
         await ctx.send(message)
 

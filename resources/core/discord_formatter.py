@@ -1,9 +1,11 @@
 import typing
+import discord
+
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from enum import Enum, StrEnum
 
-import discord
+from resources.core.dicebot_canned_responses import CannedResponses
 
 
 class DurationFormat(StrEnum):
@@ -166,9 +168,8 @@ class DiscordFormatter:
             self, interaction: discord.Interaction
         ) -> bool:
             if interaction.user.id != self.user_id:
-                await interaction.response.send_message(
-                    "You cannot interact with this view.", ephemeral=True
-                )
+                message = CannedResponses.no_perms_response(user=interaction.user)
+                await interaction.response.send_message(message, ephemeral=True)
                 return False
             return True
 
@@ -211,13 +212,13 @@ class DiscordFormatter:
             except discord.HTTPException:
                 pass
 
-            message = "An error occurred while processing this interaction."
+            error_response = CannedResponses.generic_error_response_noid(interaction.user)
 
             if interaction.response.is_done():
-                await interaction.followup.send(message, ephemeral=True)
+                await interaction.followup.send(error_response, ephemeral=True)
             else:
                 await interaction.response.send_message(
-                    message, ephemeral=True
+                    error_response, ephemeral=True
                 )
 
     # View Component Helpers
