@@ -20,6 +20,7 @@ class ParsedSuffix:
     reroll: str | None
     reroll_operator: str | None
     reroll_value: int | None
+    reroll_upper_value: int | None
 
     @classmethod
     def from_dict(cls, data: dict) -> ParsedSuffix:
@@ -33,6 +34,9 @@ class ParsedSuffix:
             reroll_operator=data["reroll_operator"],
             reroll_value=int(data["reroll_value"])
             if data["reroll_value"]
+            else None,
+            reroll_upper_value=int(data["reroll_upper_value"])
+            if data["reroll_upper_value"]
             else None,
         )
 
@@ -62,7 +66,9 @@ class ParsedSuffix:
         if self.reroll is None:
             return False
 
-        if self.reroll_operator == "<":
+        if self.reroll_upper_value is not None:
+            return self.reroll_value <= roll <= self.reroll_upper_value
+        elif self.reroll_operator == "<":
             return roll < self.reroll_value
         elif self.reroll_operator == "<=":
             return roll <= self.reroll_value
@@ -77,7 +83,9 @@ class ParsedSuffix:
         high, low = bounds
         value = self.reroll_value
 
-        if self.reroll_operator == "<":
+        if self.reroll_upper_value is not None:
+            return low >= value and high <= self.reroll_upper_value
+        elif self.reroll_operator == "<":
             return high < value
         elif self.reroll_operator == "<=":
             return high <= value
@@ -201,20 +209,27 @@ class RollResult:
             return f"Keep {direction} {suffix.keep_count}."
 
         if suffix.reroll:
+
             action = "Reroll once" if suffix.reroll == "ro" else "Reroll"
 
-            if suffix.reroll_operator == "<":
-                condition = "if less than"
-            elif suffix.reroll_operator == "<=":
-                condition = "if less than or equal to"
-            elif suffix.reroll_operator == ">":
-                condition = "if greater than"
-            elif suffix.reroll_operator == ">=":
-                condition = "if greater than or equal to"
+            if suffix.reroll_upper_value is not None:
+                condition = "if between"
+                lower = self._die_face(suffix.reroll_value)
+                upper = self._die_face(suffix.reroll_upper_value)
+                number = f"{lower} and {upper}"
             else:
-                condition = "on"
+                if suffix.reroll_operator == "<":
+                    condition = "if less than"
+                elif suffix.reroll_operator == "<=":
+                    condition = "if less than or equal to"
+                elif suffix.reroll_operator == ">":
+                    condition = "if greater than"
+                elif suffix.reroll_operator == ">=":
+                    condition = "if greater than or equal to"
+                else:
+                    condition = "on"
 
-            number = self._die_face(suffix.reroll_value)
+                number = self._die_face(suffix.reroll_value)
 
             return f"{action} {condition} {number}."
 
@@ -303,7 +318,7 @@ class DiceEngine:
             r"(?P<explode>!)"
             r"|(?=(?:adv|dis|[+-][0-9]+))(?P<advantage>adv|dis)?(?P<modifier>[+-][0-9]+)?"
             r"|(?P<keep>(?P<keep_type>kh|kl)(?P<keep_count>0*[1-9][0-9]*))"
-            r"|(?P<reroll>(?P<reroll_type>ro?)(?P<reroll_operator><=|>=|<|>)?(?P<reroll_value>[1-9][0-9]*))"
+            r"|(?P<reroll>(?P<reroll_type>ro?)(?P<reroll_operator><=|>=|<|>)?(?P<reroll_value>[1-9][0-9]*))(?::(?P<reroll_upper_value>[1-9][0-9]*))?)"
         )
 
         specialpattern = re.compile(specials, re.IGNORECASE)
@@ -331,18 +346,6 @@ class DiceEngine:
                 "Invalid syntax: Number of dice and dice sides cannot exceed 10,000, and number of dice sides cannot be less than 2."
             )
 
-        if data["advantage"] is not None and not (count == 1 or count == 2):
-            raise UserCommandError(
-                "Invalid syntax: Only one or two dice can be specified when using advantage or disadvantage (two will be rolled either way)."
-            )
-
-        keep_count = int(data["keep_count"]) if data["keep_count"] else None
-
-        if keep_count is not None and keep_count > count:
-            raise UserCommandError(
-                "Invalid syntax: You cannot keep more dice than you roll."
-            )
-
         suffix = data["suffix"]
         special = None
 
@@ -351,6 +354,26 @@ class DiceEngine:
 
             if suffixmatch:
                 special = ParsedSuffix.from_dict(suffixmatch.groupdict())
+
+                if special.advantage is not None and not (count == 1 or count == 2):
+                    raise UserCommandError(
+                        "Invalid syntax: Only one or two dice can be specified when using advantage or disadvantage (two will be rolled either way)."
+                    )
+
+                if special.keep_count is not None and special.keep_count > count:
+                    raise UserCommandError(
+                        "Invalid syntax: You cannot keep more dice than you roll."
+                    )
+
+                if special.reroll_operator is not None and special.reroll_upper_value is not None:
+                    raise UserCommandError(
+                        "Invalid syntax: You cannot perform range calculations and size comparisons in the same reroll."
+                    )
+
+                if special.reroll_upper_value is not None and special.reroll_upper_value < special.reroll_value:
+                    raise UserCommandError(
+                        "Invalid syntax: Lower bound of reroll range cannot exceed upper bound."
+                    )
 
         return ParsedRoll(
             count=count, sides=sides, suffix=special, flag=flag, arg=arg
