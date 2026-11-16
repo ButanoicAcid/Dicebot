@@ -183,7 +183,7 @@ class StartupError(RuntimeError):
 
 
 def load_token() -> str:
-    BASE_DIR = Path(__file__).resolve().parent.parent()
+    BASE_DIR = Path(__file__).resolve().parent().parent()
     load_dotenv(BASE_DIR / ".env")
 
     token = os.getenv("DISCORD_TOKEN")
