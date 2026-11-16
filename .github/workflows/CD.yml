@@ -1,0 +1,26 @@
+name: Deploy Dicebot
+
+on:
+  workflow_run:
+    workflows: ["Python CI"]
+    types:
+      - completed
+    branches:
+      - stable
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to Raspberry Pi
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'stable' &&
+      github.event.workflow_run.head_repository.full_name == 'ButanoicAcid/Dicebot'
+    runs-on: [self-hosted, Linux, ARM64, pi-deploy]
+
+    steps:
+      - name: Deploy Dicebot
+        run: sudo -n /usr/local/sbin/deploy-dicebot
