@@ -34,6 +34,9 @@ from resources.core.logging_utils import get_logger
 # RestartSec=5
 # RestartForceExitStatus=10
 
+# Env file must be in the project root's parent folder.
+# For dicebot, this is /opt/Dicebot. The main code is in /opt/Dicebot/program
+
 
 @dataclass(frozen=True, slots=True)
 class Paths:
@@ -180,7 +183,8 @@ class StartupError(RuntimeError):
 
 
 def load_token() -> str:
-    load_dotenv()
+    BASE_DIR = Path(__file__).resolve().parent.parent()
+    load_dotenv(BASE_DIR / ".env")
 
     token = os.getenv("DISCORD_TOKEN")
     if not token:
