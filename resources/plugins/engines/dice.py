@@ -305,7 +305,7 @@ class DiceEngine:
             r"(?P<explode>!)"
             r"|(?=(?:adv|dis|[+-][0-9]+))(?P<advantage>adv|dis)?(?P<modifier>[+-][0-9]+)?"
             r"|(?P<keep>(?P<keep_type>kh|kl)(?P<keep_count>0*[1-9][0-9]*))"
-            r"|(?P<reroll>(?P<reroll_type>ro?)(?P<reroll_operator><=|>=|<|>)?(?P<reroll_value>[1-9][0-9]*))(?::(?P<reroll_upper_value>[1-9][0-9]*))?)"
+            r"|(?P<reroll>(?P<reroll_type>ro?)(?P<reroll_operator><=|>=|<|>)?(?P<reroll_value>[1-9][0-9]*)(?::(?P<reroll_upper_value>[1-9][0-9]*))?)"
         )
 
         specialpattern = re.compile(specials, re.IGNORECASE)
