@@ -43,7 +43,7 @@ class Miscellaneous(BaseCog):
         await self.stores.guilds.list_append(f"#/prefs/{interaction.guild.id}/topicwheel", choice)
         await self.stores.guilds.wait_for_flush()
 
-        bot_comment = CannedResponses.topic_wheel_add_response(choice=choice, user=interaction.user)
+        bot_comment = CannedResponses.topicwheel_add_response(choice=choice, user=interaction.user)
         await interaction.followup.send(bot_comment)
 
     @topicwheel.command(name="remove", description="Removes a topic from the topic wheel.")
