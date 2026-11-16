@@ -203,7 +203,7 @@ def create_services() -> Services:
         gm_ids=[1255574033043554488, 736542444916703234, 1136671239138721893],
         git_url="fih",
         guilds_to_sync=[1460787698477301761, 1408767661214666896],
-        system_notifs_channel=1568196139402928198,
+        system_notifs_channel=1571882505743634602,
     )
 
     logger = get_logger(
