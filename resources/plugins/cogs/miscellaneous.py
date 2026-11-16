@@ -55,7 +55,7 @@ class Miscellaneous(BaseCog):
         conf = await self.stores.guilds.list_remove(f"#/prefs/{interaction.guild.id}/topicwheel", choice)
         await self.stores.guilds.wait_for_flush()
 
-        if removed:
+        if conf:
             bot_comment = CannedResponses.topic_wheel_remove_response(choice=choice, user=interaction.user)
             await interaction.followup.send(bot_comment)
         else:
