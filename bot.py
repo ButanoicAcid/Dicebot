@@ -321,8 +321,10 @@ async def terminate(
     services: Services | None,
     exception: Exception | None,
     code: int,
-) -> NoReturn | None:
+) -> None:
+    global exit_code
 
+    exit_code = code
     errors = []
 
     if bot is not None:
@@ -368,8 +370,8 @@ async def terminate(
     if errors:
         code = 1
 
-    raise SystemExit(code)
-
+    if bot is not None:
+        bot.shutdown_complete.set()
 
 class CoreBot(commands.Bot):
     def __init__(self, services: Services) -> None:
@@ -377,6 +379,7 @@ class CoreBot(commands.Bot):
         intents.message_content = True
 
         super().__init__(command_prefix="~", intents=intents)
+        self.shutdown_complete = asyncio.Event()
 
         self.services = services
 
@@ -532,7 +535,7 @@ class CoreBot(commands.Bot):
 
     async def shutdown(
         self, reason: str, requested_by: discord.User, module: str
-    ) -> NoReturn | None:
+    ) -> None:
         self.logger.info(
             f"Shutdown requested by {requested_by.name}. Reason: {
                 reason
@@ -544,7 +547,7 @@ class CoreBot(commands.Bot):
 
     async def restart(
         self, reason: str, requested_by: discord.User, module: str
-    ) -> NoReturn | None:
+    ) -> None:
         self.logger.info(
             f"Restart requested by {requested_by.name}. Reason: {
                 reason
@@ -556,7 +559,7 @@ class CoreBot(commands.Bot):
 
     async def update_restart(
         self, reason: str, requested_by: discord.User, module: str
-    ) -> NoReturn | None:
+    ) -> None:
         self.logger.info(
             f"Restart requested by {requested_by.name}. Reason: {
                 reason
@@ -568,7 +571,7 @@ class CoreBot(commands.Bot):
             bot=self, services=self.services, exception=None, code=10
         )
 
-    async def crash(self, exc: Exception) -> NoReturn | None:
+    async def crash(self, exc: Exception) -> None:
         self.logger.critical(
             f"Something went wrong, and the bot has to exit. Exception: {exc}"
         )
@@ -596,6 +599,7 @@ class CoreBot(commands.Bot):
 bot = None
 services = None
 start_time = None
+exit_code = 0
 
 
 async def main() -> NoReturn | None:
@@ -644,6 +648,7 @@ async def main() -> NoReturn | None:
 
         try:
             await bot.start(token)
+            await bot.shutdown_complete.wait()
         except discord.PrivilegedIntentsRequired as exc:
             services.logger.error(
                 "Discord rejected one or more privileged intents. Check application Intents settings in Discord Developer portal."
@@ -657,6 +662,9 @@ async def main() -> NoReturn | None:
             await terminate(bot=None, services=services, exception=exc, code=1)
         else:
             await terminate(bot=None, services=None, exception=exc, code=1)
+
+    finally:
+        raise SystemExit(exit_code)
 
 
 async def signal_exit(signum) -> NoReturn | None:
