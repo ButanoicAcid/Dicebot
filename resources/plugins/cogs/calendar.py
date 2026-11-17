@@ -725,6 +725,7 @@ class Calendar(BaseCog):
             await interaction.followup.send(events_msg)
 
     @calendar.command(name="delevent", description="Deletes calendar event by uuid.")
+    @app_commands.checks.has_permissions(manage_guild=True)
     @app_commands.guild_only()
     async def delevent(self, interaction: discord.Interaction, uuid: str) -> None:
         await interaction.response.defer()
