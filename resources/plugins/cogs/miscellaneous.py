@@ -47,6 +47,7 @@ class Miscellaneous(BaseCog):
         await interaction.followup.send(bot_comment)
 
     @topicwheel.command(name="remove", description="Removes a topic from the topic wheel.")
+    @app_commands.checks.has_permissions(manage_guild=True)
     @app_commands.guild_only()
     async def topic_wheel_remove(self, interaction: discord.Interaction, choice: str) -> None:
         await interaction.response.defer()
